@@ -9,6 +9,7 @@ library("fitdistrplus")
 library("lme4")
 library("glmmTMB")
 library("DHARMa")
+library("emmeans")
 install.packages("boxcoxmix")
 library("boxcoxmix")
 library("MASS")
@@ -69,21 +70,24 @@ sr = ggplot(subset(gat1.1,location%in% c("X1ST.Short.ramp", 'X2ND.Short.ramp')),
 sr
 
 ###this
-sr1_1 = lmer(b_den ~ Age + location + Age:location + I(Age^2) + I(Age^2):location + 
+sr1_1 = lmer(b_den ~ Age + location + poly(Age,degree = 2) + Age:location + poly(Age, degree = 2):location + 
                (1|Pen.ID/Age),data = subset(gat1.1,location%in% c("X1ST.Short.ramp", 'X2ND.Short.ramp')))
 s_sr1_1 <- simulateResiduals(fittedModel = sr1_1, plot = T)
 
 
-plot(sr1_1)
-testOutliers(s_sr1_1)
-summary(sr1_1)
-Anova(sr1_1)
-plot(allEffects(sr1_1))
+bv = emtrends(sr1_1, specs= pairwise~location, var = "poly(Age,2)", type = "response")
+bv
 
-sr1_1area = lmer(b_den ~ Age + location + Age*location + I(area^2) +
+sr1_1.rg = ref_grid(sr1_1, at = list(Age = c(8,9,10,11,12,13,14, 15, 16)))
+emmip(sr1_1.rg,location~poly(Age,degree = 2) , CIs = TRUE,
+      linearg = list(linetype = "dashed"), CIarg = list(lwd = 1, alpha = 1), type = "response")
+
+
+
+sr1_1area = lmer(b_den ~ Age + location + Age*location + ploy(area,2) +
                (1|Pen.ID/Age),data = subset(gat1.1,location%in% c("X1ST.Short.ramp", 'X2ND.Short.ramp')))
 s_sr1_1area <- simulateResiduals(fittedModel = sr1_1area, plot = T)
-
+summary(sr1_1area)
 
 sr1_1ss = lmer((b_den - 0.1) ~ Age + location + Age*location + 
                (1|Pen.ID/Age),data = subset(gat1.1,location%in% c("X1ST.Short.ramp", 'X2ND.Short.ramp')))
@@ -156,37 +160,64 @@ si_sr1.1conb2 =  simulateResiduals(fittedModel = sr1.1conb2, plot = T)
 
 ####longramp 1.1#### we have it
 
-
 lr = ggplot(subset(gat1.1,location%in% c("X1ST.part.Long.ramp..Down.", 'X2ND.part.Long.ramp..Up.')), aes(x = as.factor(Age), 
                                                                                   y = b_den, fill = as.factor(location))) +
-  geom_boxplot() + facet_wrap(~Pen.ID)
+  geom_boxplot() #+ facet_wrap(~Pen.ID)
 lr
 
-
-lr1_2 = lmer(b_den ~ Age + location + + Age*location + 
+lr1_2 = lmer(b_den ~ Age + location  + Age*location + 
                (1|Pen.ID/Age),data = subset(gat1.1,location%in% c("X1ST.part.Long.ramp..Down.", 'X2ND.part.Long.ramp..Up.')))
 simulationOutput <- simulateResiduals(fittedModel = lr1_2, plot = T)
 qqnorm(resid(lr1_2))
 qqline(resid(lr1_2))
 plot(lr1_2)
 Anova(lr1_2)
+summary(lr1_2)
 plot(allEffects(lr1_2))
 
-lr1.1co = glmmTMB(bird_n ~ Age + location + Age*location + offset(log(area)) + 
+lr1.1co = glmmTMB(b_n ~ Age + location + Age*location + offset(log(area)) + 
                     (1|Pen.ID/Age), data = subset(gat1.1,location%in% c("X1ST.part.Long.ramp..Down.", 'X2ND.part.Long.ramp..Up.')), family="nbinom1",
                   control=glmmTMBControl(optimizer=optim,optArgs=list(method="BFGS",iter.max=1e100,eval.max=1e100)))
 si_slr1.1co =  simulateResiduals(fittedModel = lr1.1co, plot = T)
+summary(lr1.1co)
 plot(allEffects(lr1.1co))
 
-lr1_2qq = lmer(b_den ~ Age + location + + Age*location + I(Age^2) + I(Age^2):location +
+lr1_2qq = lmer((b_den)^(2/3) ~ Age + location + + Age*location + poly(Age, degree = 2) + poly(Age, degree = 2):location  +
                (1|Pen.ID/Age),data = subset(gat1.1,location%in% c("X1ST.part.Long.ramp..Down.", 'X2ND.part.Long.ramp..Up.')))
 simulationOutputqq <- simulateResiduals(fittedModel = lr1_2qq, plot = T)
+summary(lr1_2qq)
+Anova(lr1_2qq)
 
+lr1_2qq.rg = ref_grid(lr1_2qq, at = list(Age = c(8,9,10,11,12,13,14, 15, 16)))
+emmip(lr1_2qq.rg,location~poly(Age,degree = 2) , CIs = TRUE,
+      linearg = list(linetype = "dashed"), CIarg = list(lwd = 1, alpha = 1), type = "response")
 
 
 
 ####1.1 middel and upper tier###
 
+tie = ggplot(subset(gat1.1,location%in% c('Middle.tier', 'Upper.tier')), aes(x = as.factor(Age), 
+                                                                            y = b_den, fill = as.factor(location))) +
+  geom_boxplot() #+  facet_wrap(~Pen.ID)
+tie
+
+tier_1.1qq = lmer((b_den)^(2/3)  ~  Age + location + +Age:location + poly(Age, degree = 2) + poly(Age, degree = 2):location +
+                  (1|Pen.ID/Age),data = subset(gat1.1,location%in% c("Middle.tier", 'Upper.tier')))
+si_tier_1.1qq =  simulateResiduals(fittedModel = tier_1.1qq, plot = T)
+Anova(tier_1.1qq)
+plot(allEffects(tier_1.1qq))
+ptran = make.tran("power", 2/3)
+
+tier_1.1qq.rg = ref_grid(tier_1.1qq, at = list(Age = c(8,9,10,11,12,13,14, 15, 16)), tran = make.tran("power", 2/3))
+emmip(tier_1.1qq.rg,location~poly(Age,degree = 2) , CIs = TRUE,
+      linearg = list(linetype = "dashed"), CIarg = list(lwd = 1, alpha = 1), type = "unlink")
+
+
+tr1.1coqq = glmmTMB(b_den ~ Age + location +  Age:location + poly(Age, degree = 2) + poly(Age, degree = 2):location +
+                    (1|Pen.ID/Age),ziformula = ~poly(Age, degree = 2) ,data = subset(gat1.1,location%in% c("Middle.tier", 'Upper.tier')), family="gaussian",
+                  control=glmmTMBControl(optimizer=optim,optArgs=list(method="BFGS",iter.max=1e100,eval.max=1e100)))
+si_tr1.1coqq =  simulateResiduals(fittedModel = tr1.1coqq, plot = T)
+plot(allEffects(tr1.1coqq))
 ##nope, AIC 3005.1
 tr1.1co = glmmTMB(b_n ~ Age + location + Age*location + offset(log(area)) + 
                     (1|Pen.ID/Age),data = subset(gat1.1,location%in% c("Middle.tier", 'Upper.tier')), family="poisson",
@@ -197,6 +228,9 @@ testZeroInflation(si_tr1.1co)
 testOutliers(si_tr1.1co,type = 'bootstrap')
 plot(allEffects(tr1.1co))
 summary(tr1.1co)
+
+
+
 
 ##nope, cant compute Aic
 tr1.1conb1 = glmmTMB(b_n ~ Age + location + Age*location + offset(log(area)) + 
